@@ -60,7 +60,11 @@ namespace BililiveRecorder.Web
         {
             var ip = context.Connection.RemoteIpAddress;
             if (ip is null) return true;
-            return !isLocalIpv4Address(ip) && !ip.IsIPv6LinkLocal && !ip.IsIPv6UniqueLocal;
+            return
+                !isLocalIpv4Address(ip) && // LAN IPV4 and loopback IPV4
+                !isLoopbackAddress(ip) && // loopback IPV4/IPV6
+                !ip.IsIPv6LinkLocal && // link-local IPV6
+                !ip.IsIPv6UniqueLocal; // unique-local IPV6
         }
 
         private static bool isLocalIpv4Address(IPAddress ip)
@@ -89,12 +93,22 @@ namespace BililiveRecorder.Web
             }
         }
 
+        private static bool isLoopbackAddress(IPAddress ip)
+        {
+            if (ip.AddressFamily is System.Net.Sockets.AddressFamily.InterNetworkV6 ||
+                ip.AddressFamily is System.Net.Sockets.AddressFamily.InterNetwork)
+                return IPAddress.IsLoopback(ip);
+
+            return false;
+        }
+
         private static bool haveReverseProxyHeaders(HttpContext context)
         {
             return
                 context.Request.Headers.ContainsKey("X-Real-IP") ||
                 context.Request.Headers.ContainsKey("X-Forwarded-For") ||
                 context.Request.Headers.ContainsKey("X-Forwarded-Host") ||
+                context.Request.Headers.ContainsKey("X-Forwarded-Proto") ||
                 context.Request.Headers.ContainsKey("Via");
         }
 
@@ -103,10 +117,53 @@ namespace BililiveRecorder.Web
             // check if the host header is set to a custom value such as a domain name
             if (IPAddress.TryParse(context.Request.Host.Host, out var ip))
             {
-                // the host header is an IP address
-                // check if the IP address matches the server's IP address
-                return ip.Equals(context.Connection.LocalIpAddress);
+                var localIP = context.Connection.LocalIpAddress;
+                if (localIP is not null && localIP.IsIPv4MappedToIPv6)
+                    localIP = localIP.MapToIPv4();
+
+                /*
+                 * 需要判断访问者的 Host 是否为 LAN IP 或 保留 IP
+                 * 1. 判断访问者传入的 Host IP 地址与访问者的 IP 地址是否相同
+                 * 2. 判断访问者传入的 Host IP 地址是否为 LAN IP 或 保留 IP
+                 * 3. 判断访问者的 IP 地址是否为 LAN IP 或 保留 IP
+                 */
+                // 访问者传入的 Host 和 IP 为 IPV6
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 &&
+                    localIP?.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+                {
+                    // 判断传入的 Host IP 地址是否为本地环回地址
+                    if (isLoopbackAddress(ip) && isLoopbackAddress(localIP))
+                        return !ip.Equals(localIP);
+
+                    return
+                        !ip.Equals(localIP) ||
+                        !ip.IsIPv6UniqueLocal ||
+                        !ip.IsIPv6UniqueLocal;
+                }
+
+                return
+                    !ip.Equals(localIP) ||
+                    !isLocalIpv4Address(ip) ||
+                    !isLocalIpv4Address(localIP);
             }
+
+            // check if the host header is set to "localhost" IP address
+            if (context.Request.Host.Host.Equals("localhost"))
+            {
+                /*
+                 * 判断是否为本机访问本机环回地址
+                 * 1. 判断访问者的 IP 地址与本机 IP 地址是否相同
+                 * 2. 判断访问者的 IP 地址是否为本机环回地址
+                 * 3. 判断本机的 IP 地址是否为本机环回地址
+                */
+                return
+                    context.Connection.RemoteIpAddress is null ||
+                    context.Connection.LocalIpAddress is null ||
+                    !context.Connection.RemoteIpAddress.Equals(context.Connection.LocalIpAddress) ||
+                    !isLoopbackAddress(context.Connection.RemoteIpAddress) ||
+                    !isLoopbackAddress(context.Connection.LocalIpAddress);
+            }
+
             // the host header is not an IP address
             return true;
         }
