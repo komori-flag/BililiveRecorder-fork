@@ -577,6 +577,22 @@
               "default": false
             }
           }
+        },
+        "TitleFilterPatterns": {
+          "description": "不录制的标题匹配正则\n默认: ",
+          "markdownDescription": "不录制的标题匹配正则  \n默认: ` `\n\n",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "HasValue": {
+              "type": "boolean",
+              "default": true
+            },
+            "Value": {
+              "type": "string",
+              "default": ""
+            }
+          }
         }
       }
     },
@@ -820,6 +836,22 @@
             "Value": {
               "type": "boolean",
               "default": false
+            }
+          }
+        },
+        "TitleFilterPatterns": {
+          "description": "不录制的标题匹配正则\n默认: ",
+          "markdownDescription": "不录制的标题匹配正则  \n默认: ` `\n\n",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "HasValue": {
+              "type": "boolean",
+              "default": true
+            },
+            "Value": {
+              "type": "string",
+              "default": ""
             }
           }
         }

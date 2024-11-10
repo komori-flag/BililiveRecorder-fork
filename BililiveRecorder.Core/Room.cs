@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BililiveRecorder.Core.Api;
@@ -228,6 +229,27 @@ namespace BililiveRecorder.Core
             }
         }
 
+        private static readonly TimeSpan TitleRegexMatchTimeout = TimeSpan.FromSeconds(0.5);
+
+        /// <exception cref="ArgumentException" />
+        /// <exception cref="RegexMatchTimeoutException" />
+        private bool DoesTitleAllowRecord()
+        {
+            // 按新行分割的正则表达式
+            var patterns = this.RoomConfig.TitleFilterPatterns?.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            if (patterns is null || patterns.Length == 0)
+                return true;
+
+            foreach (var pattern in patterns)
+            {
+                if (Regex.IsMatch(input: this.Title, pattern: pattern, options: RegexOptions.None, matchTimeout: TitleRegexMatchTimeout))
+                    return false;
+            }
+
+            return true;
+        }
+
         ///
         private void CreateAndStartNewRecordTask(bool skipFetchRoomInfo = false)
         {
@@ -241,6 +263,19 @@ namespace BililiveRecorder.Core
 
                 if (this.recordTask != null)
                     return;
+
+                try
+                {
+                    if (!this.DoesTitleAllowRecord())
+                    {
+                        this.logger.Information("标题匹配到跳过录制设置中的规则，不录制");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.logger.Warning(ex, "检查标题是否匹配跳过录制正则表达式时出错");
+                }
 
                 var task = this.recordTaskFactory.CreateRecordTask(this);
                 task.IOStats += this.RecordTask_IOStats;
@@ -653,6 +688,7 @@ retry:
             }
         }
 
+
         private void Room_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
@@ -670,7 +706,8 @@ retry:
                     }
                     break;
                 case nameof(this.Title):
-                    if (this.RoomConfig.CuttingByTitle){
+                    if (this.RoomConfig.CuttingByTitle)
+                    {
                         this.SplitOutput();
                     }
                     break;
