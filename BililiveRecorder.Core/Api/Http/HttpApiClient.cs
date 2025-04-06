@@ -46,7 +46,7 @@ namespace BililiveRecorder.Core.Api.Http
             this.UpdateHttpClient();
         }
 
-        private void UpdateHttpClient()
+        private void UpdateHttpClient(string? cookie = null)
         {
             var client = new HttpClient(new HttpClientHandler
             {
@@ -63,7 +63,7 @@ namespace BililiveRecorder.Core.Api.Http
             headers.Add("Referer", HttpHeaderReferer);
             headers.Add("User-Agent", HttpHeaderUserAgent);
 
-            var cookie_string = this.config.Cookie;
+            var cookie_string = cookie ?? this.config.Cookie;
             if (!string.IsNullOrWhiteSpace(cookie_string))
             {
                 headers.Add("Cookie", cookie_string);
@@ -213,8 +213,11 @@ namespace BililiveRecorder.Core.Api.Http
             return this.FetchAsync<RoomPlayInfo>(url);
         }
 
-        public async Task<(bool, string)> TestCookieAsync()
+        public async Task<(bool, string)> TestCookieAsync(string? cookie)
         {
+            if (cookie is not null)
+                this.UpdateHttpClient(cookie);
+
             // 需要测试 cookie 的情况不需要风控和失败检测
             var resp = await this.client.GetStringAsync("https://api.live.bilibili.com/xlive/web-ucenter/user/get_user_info").ConfigureAwait(false);
             var jo = JObject.Parse(resp);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using AutoMapper;
 using BililiveRecorder.Core;
+using BililiveRecorder.DependencyInjection;
 using BililiveRecorder.Web.Graphql;
 using BililiveRecorder.Web.Models.Rest;
 using GraphQL;
@@ -52,7 +53,14 @@ namespace BililiveRecorder.Web
 
             // 如果 IRecorder 没有被注册过才会添加，模拟调试用
             // 实际运行时在 BililiveRecorder.Web.Program 里会加上真的 IRecorder
-            services.TryAddSingleton<IRecorder>(new FakeRecorderForWeb());
+            var fakeRecorder = new FakeRecorderForWeb();
+            services.TryAddSingleton<IRecorder>(fakeRecorder);
+
+            // 先注册 ConfigV3 和 GlobalConfig 服务，然后再注册 ApiClients
+            services.AddRecorderConfig(fakeRecorder.Config);
+
+            // 注册 ICookieTester 服务，用于 CookieController
+            services.AddRecorderApiClients();
 
 #if DEBUG
             // TODO 移动到一个单独的测试项目里

@@ -5,6 +5,6 @@ namespace BililiveRecorder.Core.Api
 {
     public interface ICookieTester
     {
-        Task<(bool, string)> TestCookieAsync();
+        Task<(bool, string)> TestCookieAsync(string? cookie = null);
     }
 }
