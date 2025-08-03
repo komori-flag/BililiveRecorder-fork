@@ -72,7 +72,7 @@ namespace BililiveRecorder.WPF.Pages
             if (this.httpApiClient is null)
                 (succeed, message) = (false, "No Http Client Available");
             else
-                (succeed, message) = await this.httpApiClient.TestCookieAsync().ConfigureAwait(false);
+                (succeed, message, _) = await this.httpApiClient.TestCookieAsync().ConfigureAwait(false);
 
             if (succeed)
                 MessageBox.Show(message, "Cookie Test - Succeed", MessageBoxButton.OK, MessageBoxImage.Information);

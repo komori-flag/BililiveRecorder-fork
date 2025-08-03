@@ -213,19 +213,31 @@ namespace BililiveRecorder.Core.Api.Http
             return this.FetchAsync<RoomPlayInfo>(url);
         }
 
-        public async Task<(bool, string)> TestCookieAsync()
+        public async Task<(bool, string, CookieTesterInfo)> TestCookieAsync()
         {
             // 需要测试 cookie 的情况不需要风控和失败检测
             var resp = await this.client.GetStringAsync("https://api.live.bilibili.com/xlive/web-ucenter/user/get_user_info").ConfigureAwait(false);
             var jo = JObject.Parse(resp);
+            var data = new CookieTesterInfo
+            {
+                Uname = string.Empty,
+                Uid = 0,
+                Buvid3 = this.buvid3 ?? string.Empty
+            };
+
             if (jo["code"]?.ToObject<int>() != 0)
-                return (false, $"Response:\n{resp}");
+                return (false, $"Response:\n{resp}", data);
 
             var message = $@"User: {jo["data"]?["uname"]?.ToObject<string>()}
 UID (from API response): {jo["data"]?["uid"]?.ToObject<string>()}
 UID (from Cookie): {this.GetUid()}
 BUVID3 (from Cookie): {this.GetBuvid3()}";
-            return (true, message);
+
+            data.Uname = jo["data"]?["uname"]?.ToObject<string>() ?? string.Empty;
+            data.Uid = jo["data"]?["uid"]?.ToObject<long>() ?? 0;
+            data.Buvid3 = this.buvid3 ?? string.Empty;
+
+            return (true, message, data);
         }
 
         public long GetUid() => this.uid;
